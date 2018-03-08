@@ -5,6 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "dotenv": "^5.0.1",
+    "moment": "^2.21.0",
+    "request": "^2.83.0",
     "snoostorm": "0.0.5",
     "snoowrap": "^1.15.2"
   },
