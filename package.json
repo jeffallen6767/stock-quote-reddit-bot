@@ -1,0 +1,31 @@
+{
+  "name": "stock-quote-reddit-bot",
+  "version": "1.0.0",
+  "description": "a stock quote reddit bot",
+  "main": "index.js",
+  "dependencies": {
+    "dotenv": "^5.0.1",
+    "snoostorm": "0.0.5",
+    "snoowrap": "^1.15.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffallen6767/stock-quote-reddit-bot.git"
+  },
+  "keywords": [
+    "stock",
+    "quote",
+    "reddit",
+    "bot"
+  ],
+  "author": "Jeffrey David Allen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jeffallen6767/stock-quote-reddit-bot/issues"
+  },
+  "homepage": "https://github.com/jeffallen6767/stock-quote-reddit-bot#readme"
+}
