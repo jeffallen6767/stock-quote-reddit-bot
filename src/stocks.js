@@ -29,9 +29,10 @@ var
   FORMATS = {
     "bold": F_BOLD
   },
+  GITHUB_LINK = 'https://github.com/jeffallen6767/stock-quote-reddit-bot',
   REDDIT_SIGNATURE = [
     [
-      "I'm a [bot](https://github.com/jeffallen6767/stock-quote-reddit-bot) ",
+      "I'm a [bot](" + GITHUB_LINK + ") ",
       " I respond to " + F_BOLD("$STOCK_TICKER") + " in reddit comments ",
       " Please don't abuse me. ",
     ].join(ASCII_HYPHEN + ASCII_HYPHEN),
@@ -46,6 +47,7 @@ var
     '&types=quote'
   ].join(SYMBOL_PLACEHOLDER),
   SYMBOL_MATCHER = /\$[A-Za-z\.]+/gi,
+  RETRY_MATCHER = /try again in (d+) seconds/gi,
   //        "Sunday, February 14th 2010, 3:25:50 pm"
   DATE_TIME_FORMAT = 'dddd, MMMM Do YYYY, h:mm:ss a',
   T_TIME = function(val) {
@@ -122,14 +124,20 @@ var
     return [].slice.call(arguments).join(ASCII_SPACE);
   },
   formatPost = function(d) {
+    console.log(d);
     var
       f = FORMATS,
       bold = f.bold,
       lines = [
         line(bold(d.symbol), ASCII_HYPHEN, bold(d.companyName), ASCII_AT_SYMBOL, bold(d.primaryExchange)),
+        line("Latest", d.latestPrice, "Volume:", d.latestVolume, "Bid", d.iexBidPrice + "/" + d.iexBidSize, "Ask", d.iexAskPrice + "/" + d.iexAskSize),
+        line("High", d.high, "Low", d.low),
         line("Open", d.open, ASCII_AT_SYMBOL, d.openTime),
         line("Close", d.close, ASCII_AT_SYMBOL, d.closeTime),
-        line("High", d.high, "Low", d.low, "Latest", d.latestPrice, "Bid", d.iexBidPrice + "/" + d.iexBidSize, "Ask", d.iexAskPrice + "/" + d.iexAskSize),
+        line("Previous Close", d.previousClose, "Change", d.change, "Change Percentage", d.changePercent),
+        line("Market Cap $", d.marketCap, "Shares Outstanding", T_BIGNUM(Math.floor(d._marketCap / d._latestPrice))),
+        
+        /* TODO: add some other stats when we have more time */
         
       ],
       result = lines.join(REDDIT_NEW_LINE);
@@ -141,16 +149,26 @@ var
       var
         value = data[key],
         translationFunction = TRANSLATIONS[key];
-      obj[key] = translationFunction
-        ? translationFunction(value)
-        : value;
+      if (translationFunction) {
+        obj[key] = translationFunction(value);
+        obj["_"+key] = value;
+      } else {
+        obj[key] = value;
+      }
       return obj;
     }, {});
   },
-  replyToComment = function(comment, body) {
+  parseAndReply = function(comment, quote) {
+    try {
+      var data = JSON.parse(quote);
+      replyToComment(comment, data);
+    } catch (e) {
+      console.error("parseAndReply", e.getMessage());
+    }
+  },
+  replyToComment = function(comment, data) {
     console.log("replyToComment");
     var
-      data = JSON.parse(body),
       quotes = Object.keys(data).map(function(key) {
         return data[key].quote;
       }),
@@ -159,10 +177,20 @@ var
       replyText = formatted.join(REDDIT_DIVIDER),
       replyPost = [
         replyText, REDDIT_SIGNATURE
-      ].join(REDDIT_DIVIDER);
+      ].join(REDDIT_DIVIDER),
+      msg, rate;
     
     if (typeof comment.reply === 'function') {
-      comment.reply(replyPost);
+      try {
+        comment.reply(replyPost);
+      } catch (e) {
+        msg = e.getMessage();
+        console.error("caught reply error", msg, e);
+        if (msg.indexOf("RATELIMIT") > -1) {
+          rate = msg.match(RETRY_MATCHER);
+          console.log("NEW RATE", rate, msg);
+        }
+      }
       console.log(replyPost);
     } else {
       console.log("data", data);
@@ -173,7 +201,7 @@ var
     }
   },
   getSymbolQuote = function(comment) {
-    console.log(comment);
+    console.log("BOT will handle: ", comment.body);
     var
       body = comment.body,
       matches = body.match(SYMBOL_MATCHER),
@@ -192,8 +220,13 @@ var
         } else {
           // good response ( aka 200 )
           console.log(url);
-          //console.log(body);
-          replyToComment(comment, body);
+          console.log(body);
+          if (body === "{}") {
+            // bad symbol? or some other quote problem...
+            console.error("getSymbolQuote no quote for ", url);
+          } else {
+            parseAndReply(comment, body);
+          }
         }
       },
       get = request(url, callback);
@@ -202,6 +235,7 @@ var
     console.log("symbols", symbols);
   },
   handleComment = function(comment) {
+    console.log(comment.body);
     // fast test
     if (SYMBOL_MATCHER.test(comment.body)) {
       getSymbolQuote(comment);

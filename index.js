@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+const THIS_BOTS_NAME = 'STOCK-TICKER-BOT';
+
+const subreddits = 'stocks';
+
 const Snoowrap = require('snoowrap');
 const Snoostorm = require('snoostorm');
 
@@ -7,7 +11,7 @@ const stocks = require('./src/stocks');
 
 // Build Snoowrap and Snoostorm clients
 const r = new Snoowrap({
-    userAgent: 'script:STOCK-TICKER-BOT:1.0.0 (by /u/STOCK-TICKER-BOT)',
+    userAgent: 'script:' + THIS_BOTS_NAME + ':1.0.0 (by /u/' + THIS_BOTS_NAME + ')',
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     username: process.env.REDDIT_USER,
@@ -17,8 +21,9 @@ const client = new Snoostorm(r);
 
 // Configure options for stream: subreddit & results per query
 const streamOpts = {
-    subreddit: 'all',
-    results: 25
+    subreddit: subreddits,
+    results: 25,
+    pollTime: 12000
 };
 
 if (process.argv.length > 3 && process.argv[2] == "test") {
@@ -31,6 +36,11 @@ if (process.argv.length > 3 && process.argv[2] == "test") {
   const comments = client.CommentStream(streamOpts);
 
   // On comment, perform whatever logic you want to do
-  comments.on('comment', stocks.handleComment);
+  comments.on('comment', function(comment) {
+    // don't respond to our own comments:
+    if (comment.author.name !== THIS_BOTS_NAME) {
+      stocks.handleComment(comment);
+    }
+  });
   
 }
